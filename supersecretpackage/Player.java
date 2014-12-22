@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,21 +20,22 @@ import javax.imageio.ImageIO;
  */
 public class Player {
     
+    private Game game;
+    
     private float x;
     private float y;
     private float dX;
     private float dY;
     
+    private int health;
+    private int score;
     private int ammo;
     private ArrayList<Fire> fires;
-    private int fireDuration;
     private int maxAmmo;
     
     private int collisionWidth;
     private int collisionHeight;
-            
     private BufferedImage sprite;
-    
     private float currentSprite;
     private int currentOrientation;
     private int currentAnimation;
@@ -42,7 +44,7 @@ public class Player {
         public final static int RIGHT = 0, LEFT = 164;
     }
     private final class SpriteAnimation {
-        public static final int RELOADING = 0, FIRING =47, RUNNING = 86, BREATHING = 125;
+        public static final int RELOADING = 0, FIRING = 47, RUNNING = 86, BREATHING = 125;
     }
     private static final Map<Integer, Dimension> SpriteDimension = new HashMap<Integer, Dimension>() {{
         put(SpriteAnimation.RELOADING, new Dimension(47, 47));
@@ -81,9 +83,10 @@ public class Player {
     /**
      * Constructeur du joueur
      */
-    public Player() {
+    public Player(Game g) {
         initialize();
         loadContent();
+        game = g;
     }
     
     
@@ -93,7 +96,6 @@ public class Player {
     private void initialize() {
         collisionWidth = 23;
         collisionHeight = 38;
-        
         currentSprite = 0;
         currentOrientation = SpriteOrientation.RIGHT;
         currentAnimation = SpriteAnimation.BREATHING;
@@ -103,9 +105,10 @@ public class Player {
         dX = 0;
         dY = 0;
         
+        health = 20;
+        score = 0;
         ammo = maxAmmo = 16;
         fires = new ArrayList<Fire>();
-        fireDuration = 4;
     }
     
     
@@ -140,7 +143,7 @@ public class Player {
                 fireEnd = 0;
             }
             
-            fires.add(new Fire(fireStart, fireY, fireEnd, fireY));
+            fires.add(new Fire(game, fireStart, fireY, fireEnd, fireY));
             ammo--;
         }
     }
@@ -164,9 +167,18 @@ public class Player {
         Boolean groundCollision = (y >= groundLevel);
         float dYAcceleration = 1.2f;
         
-        // On ne peut tirer/recharger que si on est à l'arret un déplacement annule l'animation
+        // Vérifie si un zombie nous bouffe
+        ArrayList<Zombie> zombies = game.getZombies();
+        for(Iterator i = zombies.iterator(); i.hasNext();) {
+            Zombie zombie = (Zombie) i.next();
+            if(zombie.isCrunching() && Math.abs((int)zombie.getGX() - (int)getGX()) < 6 && (int)zombie.getY() < (int)getGY() && (int)zombie.getGY() > (int)getY()) {
+                health--;
+            }
+        }
+        
+        // On ne peut tirer/recharger que si on est à l'arret, un déplacement annule l'animation
         if(dX == 0) {
-            // Si on tire (et qu'on a des munitions et qu'ont ne recharge pas et qu'on ne tirait pas, ou que le précédent tir est à plus de 55%)
+            // Si on tire (et qu'on a des munitions et qu'on ne recharge pas et qu'on ne tirait pas, ou que le précédent tir est à plus de 55%)
             if(ammo > 0 && currentAnimation != SpriteAnimation.RELOADING && Canvas.mouseState(MouseEvent.BUTTON1) && (currentAnimation != SpriteAnimation.FIRING || (currentAnimation == SpriteAnimation.FIRING && currentSprite > SpriteFrames.get(SpriteAnimation.FIRING) / 1.8))) {
                 currentSprite = 0;
                 currentAnimation = SpriteAnimation.FIRING;
@@ -197,7 +209,7 @@ public class Player {
         else {
             dX = 0;
             
-            // Si on ne respire/tire/recharge pas on retourne à l'animation de base (respiration)
+            // Si on ne respire/tire/recharge pas on retourne à l'animation de base (la respiration)
             if(currentAnimation != SpriteAnimation.BREATHING && currentAnimation != SpriteAnimation.FIRING && currentAnimation != SpriteAnimation.RELOADING) {
                 currentSprite = 0;
                 currentAnimation = SpriteAnimation.BREATHING;
@@ -232,6 +244,22 @@ public class Player {
         else if(x > wallPosition) {
             x = wallPosition;
         }
+        
+        // Met à jour les tirs (et vérifie le score)
+        for(Iterator i = fires.iterator(); i.hasNext();) {
+            Fire fire = (Fire) i.next();
+            if(fire.isAlive()) {
+                fire.update();
+            }
+            else {
+                // Une fois le tir mort, on regarde s'il a eu le temps de toucher
+                if(fire.hasTouched()) {
+                    score++;
+                }
+                i.remove();
+            }
+        }
+        
             
         // Mise à jour de l'animation du sprite
         currentSprite += SpriteFrames.get(currentAnimation) / (Framework.MAX_FPS * SpriteDuration.get(currentAnimation));
@@ -262,6 +290,12 @@ public class Player {
         /*g2d.setColor(new Color(20, 20, 20));
         g2d.fillRect((int)x, (int)y, collisionWidth, collisionHeight);*/
         
+        // Les tirs
+        for(Iterator i = fires.iterator(); i.hasNext();) {
+            Fire fire = (Fire) i.next();
+            fire.draw(g2d);
+        }
+        
         // Sprite
         Dimension spriteDimension = SpriteDimension.get(currentAnimation);
         Dimension spriteGap = SpriteGap.get(currentOrientation).get(currentAnimation);
@@ -275,9 +309,15 @@ public class Player {
             spriteDX, spriteDY, spriteDimension.width, spriteDimension.height, null
         );
         
+        g2d.setColor(new Color(90, 90, 90));
         // Munitions
-        g2d.setColor(new Color(150, 150,150));
-        g2d.drawString("Ammo : "+ammo, x - 18, y - 10);
+        g2d.drawString("Ammo : "+ammo, x - 48, y - 10);
+        // Santé
+        g2d.drawString("Health : "+health, x + 20, y - 10);
+        
+        // Score
+        g2d.setColor(new Color(120, 120,120));
+        g2d.drawString("Kills : "+score, 20, Framework.frameHeight - 20);
     }
     
     
@@ -286,6 +326,46 @@ public class Player {
      */
     public ArrayList<Fire> getFires() {
         return fires;
+    }
+    
+    
+    /**
+     * isDead Getter
+     */
+    public boolean isDead() {
+        return health <= 0;
+    }
+    
+    
+    /**
+     * x Getter (centre du joueur et non le coin supérieur gauche)
+     */
+    public float getX() {
+        return x;
+    }
+    
+    
+    /**
+     * x Getter (centre du joueur et non le coin supérieur gauche)
+     */
+    public float getGX() {
+        return x + (collisionWidth/2);
+    }
+    
+    
+    /**
+     * y Getter (pied du joueur et non le coin supérieur gauche)
+     */
+    public float getY() {
+        return y;
+    }
+    
+    
+    /**
+     * y Getter (pied du joueur et non le coin supérieur gauche)
+     */
+    public float getGY() {
+        return y + (collisionHeight/2);
     }
     
 }

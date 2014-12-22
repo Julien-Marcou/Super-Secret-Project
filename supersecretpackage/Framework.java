@@ -3,7 +3,6 @@ package supersecretpackage;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
 
 /**
  * Framework de controle du jeu
@@ -21,7 +20,7 @@ public class Framework extends Canvas {
 
     // Données du Jeu
     private Game game;
-    public static enum GameState {VOID, MAIN_MENU, PLAYING};
+    public static enum GameState {VOID, MAIN_MENU, PLAYING, GAME_OVER};
     public static GameState gameState;
     private boolean gameIsRunning;
     private long beginTime; // Temps au début du cyle courant
@@ -117,6 +116,7 @@ public class Framework extends Canvas {
                 // Tant qu'on a du retard on mets à jour le jeu sans faire le rendu
                 // On quitte aussi la boucle au bout de MAX_FRAME_SKIPS frames passées,
                 // Pour forcer à mettre à jour au moins une fois le rendu
+                // (crée un effet de lag à l'écran, mais permet de continuer à jouer)
                 while(timeLeft < 0 && framesSkipped < MAX_FRAME_SKIPS) {
                     updateGame();
                     timeLeft += FRAME_PERIOD / milisecInNanosec; // On rattrape notre retard
@@ -136,14 +136,6 @@ public class Framework extends Canvas {
 
 
     /**
-     * On recommence le jeu
-     */
-    private void restartGame() {
-        game.restartGame();
-    }
-
-
-    /**
      * On quitte le jeu
      */
     private void exitGame() {
@@ -155,19 +147,8 @@ public class Framework extends Canvas {
      * On fait la mise à jour du jeu
      */
     private void updateGame() {
-        switch(gameState) {
-
-            case PLAYING :
-                game.updateGame();
-                break;
-
-            case MAIN_MENU :
-                // Void
-                break;
-
-            default :
-                // Void
-                break;
+        if(gameState == GameState.PLAYING) {
+            game.updateGame();
         }
     }
 
@@ -185,6 +166,8 @@ public class Framework extends Canvas {
      */
     @Override
     public void draw(Graphics2D g2d) {
+        int frameXcenter = frameWidth / 2;
+        int frameYcenter = frameHeight / 2;
         switch(gameState) {
 
             case PLAYING :
@@ -192,17 +175,23 @@ public class Framework extends Canvas {
                 break;
 
             case MAIN_MENU :
-                int frameXcenter = frameWidth / 2;
-                int frameYcenter = frameHeight / 2;
                 g2d.setColor(new Color(38, 38, 38));
                 g2d.fillRect(0, 0, frameWidth, frameHeight);
                 g2d.setColor(new Color(150, 150, 150));
-                g2d.drawString("Appuyez sur une touche pour commencer", frameXcenter - 114, frameYcenter - 20);
+                g2d.drawString("Appuyez sur \"Espace\" ou \"Entrée\" pour commencer", frameXcenter - 138, frameYcenter - 20);
                 g2d.drawString("Ou sur \"Échap\" pour quitter le jeu", frameXcenter - 90, frameYcenter + 0);
-
                 g2d.drawString("Se déplacer : ZQSD ou ↑←↓→", frameXcenter - 84, frameYcenter + 60);
                 g2d.drawString("Recharger : R ou Clic Droit", frameXcenter - 76, frameYcenter + 80);
                 g2d.drawString("Tirer : Clic Gauche", frameXcenter - 50, frameYcenter + 100);
+                break;
+
+            case GAME_OVER :
+                g2d.setColor(new Color(38, 38, 38));
+                g2d.fillRect(0, 0, frameWidth, frameHeight);
+                g2d.setColor(new Color(150, 150, 150));
+                g2d.drawString("Game Over !", frameXcenter - 29, frameYcenter - 30);
+                g2d.drawString("Appuyez sur \"Espace\" ou \"Entrée\" pour recommencer", frameXcenter - 142, frameYcenter + 30);
+                g2d.drawString("Ou sur \"Échap\" pour quitter le jeu", frameXcenter - 90, frameYcenter + 50);
                 break;
 
             default :
@@ -220,20 +209,14 @@ public class Framework extends Canvas {
         super.keyReleased(e);
         if(e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             exitGame();
+            return;
         }
-        else if(game == null) {
-            newGame();
-        }
-    }
-
-
-    /**
-     * Détection d'un relachement de souris
-     */
-    @Override
-    public void mouseReleased(MouseEvent e) {
-        super.mouseReleased(e);
-        if(game == null) {
+        
+        if(
+            (e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER)
+            &&
+            (gameState == GameState.MAIN_MENU || gameState == GameState.GAME_OVER)
+        ) {
             newGame();
         }
     }

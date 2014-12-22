@@ -15,6 +15,8 @@ import java.util.Iterator;
  */
 public class Fire {
     
+    private Game game;
+    
     // Durée de vie d'un tir (en FPS)
     private static int maxLife = 4;
     
@@ -34,9 +36,10 @@ public class Fire {
     /**
      * Constructeur du tir
      */
-    public Fire(int x1, int y1, int x2, int y2) {
+    public Fire(Game g, int x1, int y1, int x2, int y2) {
         initialize();
         loadContent();
+        game = g;
         startX = x1;
         startY = y1;
         endX = x2;
@@ -65,7 +68,9 @@ public class Fire {
     /**
      * Mise à jour logique du tir, on passe en paramètre le tableaux des objets avec lequels il peut entrer en collision
      */
-    public void update(ArrayList<Zombie> zombies) {
+    public void update() {
+        
+        ArrayList<Zombie> zombies = game.getZombies();
         
         if(isAlive()) {
         
@@ -86,9 +91,9 @@ public class Fire {
                         &&
                         // Et sur X dans un sens ou dans l'autre
                         (
-                            (startX < (zombie.getX() + zombie.getCollisionWidth()/2) && endX >= zombie.getX())
+                            (startX < (zombie.getX() + zombie.getCollisionWidth()) && endX >= zombie.getX()) // Tir sur la droite
                             ||
-                            (startX > zombie.getX() && endX <= (zombie.getX() + zombie.getCollisionWidth()/2))
+                            (startX > zombie.getX() && endX <= (zombie.getX() + zombie.getCollisionWidth())) // Tir sur la gauche
                         )
                     ) {
                         // On cherche le zombie le plus proche de l'origine du tir
@@ -107,7 +112,7 @@ public class Fire {
                     hasTouched = true;
                     nearestZombie.isDead(true);
                     
-                    // Le tir s'arrête au zombie
+                    // Le tir s'arrête au zombie (au niveau annimation)
                     endX = (int) nearestZombie.getX() + (nearestZombie.getCollisionWidth() / 2);
                 }
             }
@@ -143,6 +148,14 @@ public class Fire {
             return true;
         else
             return false;
+    }
+    
+    
+    /**
+     * isAlive Getter
+     */
+    public boolean hasTouched() {
+        return hasTouched;
     }
     
     

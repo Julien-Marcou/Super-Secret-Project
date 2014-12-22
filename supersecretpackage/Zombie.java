@@ -15,19 +15,22 @@ import javax.imageio.ImageIO;
  */
 public class Zombie {
     
+    private Game game;
+    
     private float x;
     private float y;
     private float dX;
     private float dY;
     
-    private boolean walk;
+    int crunchCountdown;
+    int crunchCount;
+    private boolean walking;
     private boolean dead;
+    private ZombieAI ai;
     
     private int collisionWidth;
     private int collisionHeight;
-            
     private BufferedImage sprite;
-    
     private float currentSprite;
     private int currentOrientation;
     private int currentAnimation;
@@ -60,9 +63,10 @@ public class Zombie {
     /**
      * Constructeur du zombie
      */
-    public Zombie() {
+    public Zombie(Game g) {
         initialize();
         loadContent();
+        game = g;
     }
     
     
@@ -72,7 +76,6 @@ public class Zombie {
     private void initialize() {
         collisionWidth = 14;
         collisionHeight = 38;
-        
         currentSprite = 0;
         currentOrientation = SpriteOrientation.RIGHT;
         currentAnimation = SpriteAnimation.WALKINK;
@@ -82,7 +85,10 @@ public class Zombie {
         dX = 0;
         dY = 0;
         
-        walk = false;
+        ai = new ZombieAI();
+        walking = false;
+        crunchCount = 0;
+        crunchCountdown = Framework.MAX_FPS*2; // Peut mordre toutes les 2sec
     }
     
     
@@ -119,7 +125,16 @@ public class Zombie {
      * Tourner à droite
      */
     public void walk() {
-        walk = true;
+        walking = true;
+    }
+    
+    
+    /**
+     * Lance une attaque contre le joueur
+     */
+    public void crunch() {
+        if(crunchCount == 0)
+               crunchCount = crunchCountdown;
     }
     
     
@@ -128,42 +143,50 @@ public class Zombie {
      */
     public void update() {
         if(!isDead()) {
-            int groundLevel = (Framework.frameHeight - 60 - collisionHeight);
             int wallPosition = (Framework.frameWidth - collisionWidth);
+            /*int groundLevel = (Framework.frameHeight - 60 - collisionHeight);
             Boolean groundCollision = (y >= groundLevel);
-            float dYAcceleration = 1.2f;
+            float dYAcceleration = 1.2f;*/
+            // PAS DE GESTION DE LA GRAVITÉ POUR LE ZOMBIE
+            
+            ai.updateToNextMove();
+            
+            // S'il mort le joueur
+            if(crunchCount > 0) {
+                crunchCount--;
+            }
 
             // S'il marche
-            if(walk) {
+            if(walking) {
                 if(currentOrientation == SpriteOrientation.LEFT) {
                     dX = -0.5f;
                 }
                 else {
                     dX = 0.5f;
                 }
-                walk = false;
+                walking = false;
             }
             else {
                 dX = 0;
             }
 
             // S'il tombe
-            if(!groundCollision) {
+            /*if(!groundCollision) {
                 dY += (9.81 / Framework.MAX_FPS) * dYAcceleration;
             }
             // S'il arrête de tomber
             else if(groundCollision && dY > 0) {
                 dY = 0;
-            }
+            }*/
 
             // Mise à jour déplacement
             x += dX;
-            y += dY;
+            //y += dY;
 
             // Limitation déplacement en fonction des collisions
-            if(y > groundLevel) {
+            /*if(y > groundLevel) {
                 y = groundLevel;
-            }
+            }*/
             
             // Le zombie peut apparaitre en dehors du décor mais ne peu plus en sortir
             if(x < 0 && currentOrientation == SpriteOrientation.LEFT) {
@@ -221,7 +244,7 @@ public class Zombie {
      * position y Setter
      */
     public void setY(int y) {
-        this.y =y;
+        this.y = y;
     }
     
     
@@ -234,6 +257,14 @@ public class Zombie {
     
     
     /**
+     * x Getter (centre du zombie et non le coin supérieur gauche)
+     */
+    public float getGX() {
+        return x + (collisionWidth/2);
+    }
+    
+    
+    /**
      * position y Getter
      */
     public float getY() {
@@ -242,10 +273,26 @@ public class Zombie {
     
     
     /**
+     * y Getter (pied du zombie et non le coin supérieur gauche)
+     */
+    public float getGY() {
+        return y + collisionHeight;
+    }
+    
+    
+    /**
      * isDead Getter
      */
     public boolean isDead() {
         return dead;
+    }
+    
+    
+    /**
+     * isCrunching Getter
+     */
+    public boolean isCrunching() {
+        return crunchCount == crunchCountdown - 1;
     }
     
     
@@ -270,6 +317,31 @@ public class Zombie {
      */
     public int getCollisionHeight() {
         return collisionHeight;
+    }
+    
+    
+    /**
+     * IA d'un zombie
+     */
+    private class ZombieAI {
+        
+        public ZombieAI() {}
+        
+        public void updateToNextMove() {
+            Player target = game.getPlayer();
+            if(target.getGX() > getGX()) {
+                right();
+                walk();
+            }
+            else if(target.getGX() < getGX()) {
+                left();
+                walk();
+            }
+            if(Math.abs(target.getGX() - getGX()) < 5) {
+                crunch();
+            }
+        }
+        
     }
     
 }

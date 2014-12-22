@@ -37,7 +37,7 @@ public class Game {
      * Initialisation des données du Jeu
      */
     private void initialize() {
-        player = new Player();
+        player = new Player(this);
         zombies = new ArrayList<Zombie>();
     }
     
@@ -55,6 +55,7 @@ public class Game {
      */
     public void restartGame() {
         // Void
+        // Todo : implementer une reprise de pause
     }
     
     
@@ -63,6 +64,7 @@ public class Game {
      */
     public void stopGame() {
         // Void
+        // Todo : implementer une mise pause
     }
     
     
@@ -71,20 +73,13 @@ public class Game {
      */
     public void updateGame() {
         
+        if(player.isDead()) {
+            Framework.gameState = Framework.GameState.GAME_OVER;
+            return;
+        }
+        
         // Le joueur
         player.update();
-        ArrayList<Fire> fires = player.getFires();
-        
-        // Les tirs
-        for(Iterator i = fires.iterator(); i.hasNext();) {
-            Fire fire = (Fire) i.next();
-            if(fire.isAlive()) {
-                fire.update(zombies);
-            }
-            else {
-                i.remove();
-            }
-        }
         
         // Les zombies
         for(Iterator i = zombies.iterator(); i.hasNext();) {
@@ -93,20 +88,17 @@ public class Game {
                 i.remove();
             }
             else {
-                zombie.walk();
                 zombie.update();
             }
         }
         
         // On ajout un zombie en moyenne toutes les 2 secondes (25 au max)
         if(zombies.size() < 20 && Math.random() < (1.0 / Framework.MAX_FPS * 2)) {
-            Zombie zombie = new Zombie();
+            Zombie zombie = new Zombie(this);
             if(Math.random() < 0.5) {
-                zombie.left();
                 zombie.setX(Framework.frameWidth);
             }
             else {
-                zombie.right();
                 zombie.setX(-14);
             }
             zombies.add(zombie);
@@ -127,13 +119,6 @@ public class Game {
         g2d.setColor(new Color(25, 20, 20));
         g2d.fillRect(0, Framework.frameHeight - 60, Framework.frameWidth, Framework.frameHeight - 60);
         
-        // Les tirs
-        ArrayList<Fire> fires = player.getFires();
-        for(Iterator i = fires.iterator(); i.hasNext();) {
-            Fire fire = (Fire) i.next();
-            fire.draw(g2d);
-        }
-        
         // Le joueur
         player.draw(g2d);
         
@@ -142,6 +127,22 @@ public class Game {
             Zombie zombie = (Zombie) i.next();
             zombie.draw(g2d);
         }
+    }
+    
+    
+    /**
+     * player Getter
+     */
+    public Player getPlayer() {
+        return player;
+    }
+    
+    
+    /**
+     * zombies Getter
+     */
+    public ArrayList<Zombie> getZombies() {
+        return zombies;
     }
     
 }
